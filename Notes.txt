@@ -1,3 +1,5 @@
+7/3/246 Notes
+
 Interrupts: Need CSR registers, meaning I will need to add CSR instructions to the CPU (New extension). From there, we need a global interrupt enable (all interrupts), machine external interrupt enable (masks only peripherals), and local peripheral enable (registers saved on the interrupt controller). From here, in our main prologue, we will have global enable and disable drivers, external interrupt enable and disable drivers, and peripheral specific interrupt enable and disable drivers. The global and external drivers will need to be written in inline assembly, so we must have a separate file for these. For the peripheral drivers, they will live inside their own respective .c file, but their register address will sit in a centralized interrupt_controller.h file. This allows for easy expansion of new peripherals: Add to the interrupt_controller.h with the new register address, then create your enable and disable drivers for the peripheral.
 
 UART: Need to create the transmitter and receiver functionalities. Separate software drivers are required to transmit messages longer than 1 byte. I will use a standard baud rate of 115200. This will require me to buld state machines (simple) for both sending and receiving. Furthermore, I need to be able to interface it with interrupts for when transfers are completed and when receiving is ready (?).
@@ -9,3 +11,31 @@ PWM: Leaving this till last. Will be used for demo to control a motor that spins
 Wishbone Bus Interface: Important bus interface to interract with multiple peripherals.
 
 DMA: Will also be done last. Need to integrate a second master into the wishbone bus system.
+
+7/4/26 Notes
+
+UART Bootloader Protocol:
+
+Phase 1: UART Initialization
+
+Phase 2: Handshake to synchronize PC and FPGA UART systems. Send a 0xAA then 0x55 to the CPU telling it that it is ready, then the CPU returns an acknowledge byte to let it know that it is ready too.
+
+Phase 3: UART receiving sequence. Here the PC sends instructions byte by byte to the CPU. It starts by sending 4 bytes telling it the size that will be sent, then a 4-byte checksum (might not do this, may be too much extra work).
+
+Phase 4: Actual receive and write loop. Here the UART sends a byte, then it stores a byte.
+
+Phase 5: Conclusion. Once all the data is sent, the bootloader needs to jump to the start of IMEM. Because this will be a large jump, the C code that will be required is a pointer to a variable storing the IMEM base address. We will do a JALR to this base address through the pointer! Optionally, if we go through with the checksum, the CPU UART should send one final ACK byte to say that it has recevied all the data and the checksum was matched. If the checksum fails, then a NAK byte should be sent and restart from phase 2.
+
+On the PC side, a small python script will be made to handle the image transfer onto the board. We will use pyserial to do this. Again, baud rate is 115200.
+
+For the actual C code that we are going to write, we must structure it like the STM32IDE skeleton code. First section is includes, global variables, and defines, then the driver initializations, then finally an infinite loop for main:
+
+while(1) {
+
+...
+
+}
+
+This will prevent the program from hitting lossy media if we don't fill the entire IMEM space (GCC does nothing when main returns- It just goes to the next PC address which can target stale instructions!)
+
+I need to complete the MVP wishbone skeleton, then the UART state machines. After this, I will be able to test that the program works. After this, I will go forward with adding the Zicsr extension to the current CPU model and begin on adding interrupts.
