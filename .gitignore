@@ -21,3 +21,9 @@ cov*/
 transcript*
 sc_dpiheader.h
 vsim.dbg
+
+#Ignore work files by modelsim
+work/
+*.log
+build/
+*.ini
